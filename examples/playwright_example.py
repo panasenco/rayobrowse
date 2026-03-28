@@ -21,8 +21,8 @@ def main():
     # --- Define fingerprint filters ---
     target_os = "windows"  # android and windows tested; macos and linux experimental
     target_browser = "chrome"
-    version_min = 144
-    version_max = 144
+    version_min = 146
+    version_max = 146
 
     logging.info(f"Requesting browser: OS={target_os}, Chrome {version_min}-{version_max}")
 

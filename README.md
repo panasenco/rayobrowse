@@ -14,9 +14,6 @@ Standard headless Chromium gets blocked immediately by modern bot detection. ray
 
 It runs inside Docker (x86_64 and ARM64) and is actively used in production on [Rayobyte's scraping API](https://rayobyte.com/products/web-scraping-api) to scrape millions of pages per day across some of the most difficult, high-value websites.
 
-
-Need proxies that are optimized for rayobrowse? Get a free trial of our residential proxies:  [Rayobyte's residential proxies](https://rayobyte.com/products/residential-proxies/)
-
 ---
 
 ## Quick Start
@@ -211,7 +208,7 @@ Route traffic through any HTTP proxy, just as you would with standard Playwright
 
 ### Headless or Headful
 
-Run headful mode on headless Linux servers via Xvfb (handled inside the container). Watch sessions live through the built-in noVNC viewer.
+Run headful mode on headless Linux servers (handled inside the container via Xvnc). Watch sessions live through the built-in noVNC viewer.
 
 ---
 
@@ -554,7 +551,7 @@ For beta testers who can provide valuable feedback, we'll offer free browser thr
 Specific limitations:
 
 - Fingerprint coverage is optimized for **Windows and Android**. macOS and Linux fingerprints are available but aren't a primary focus.
-- For optimal fingerprint matching, set `browser_version_min` and `browser_version_max` to **144** (the current Chromium version). Using a fingerprint from a different version may cause detection on some sites.
+- For optimal fingerprint matching, set `browser_version_min` and `browser_version_max` to **146** (the current Chromium version). Using a fingerprint from a different version may cause detection on some sites.
 
 ---
 

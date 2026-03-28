@@ -1,10 +1,25 @@
 # Changelog
 
-## [0.1.32] - 2026-03-21
+## [0.1.33] - 2026-03-27
+
+### Added
+- **Per-browser VNC isolation** — each browser now gets its own display and noVNC port (6080–6119), eliminating cross-session visual interference when running multiple browsers simultaneously. Docker Compose now exposes the full port range.
+- **Native mode** — SDK client now supports `STEALTH_BROWSER_MODE=native` for running the daemon as a local Python process without Docker.
+- **`debug` parameter** — `create_browser(debug=True)` generates a diagnostic report on the daemon host for troubleshooting.
+- **Chromium v145 and v146 support** — fingerprint patches ported to latest Chromium versions with multi-version compatibility.
 
 ### Improved
-- **Page visibility and focus** - window outerWidth != innerWidth was a bug that is now fixed.
-- **Page visibility and focus** - in Docker, --no-sandbox was being used, causing a detection vector. It's now reworked and avoids using this arg.
+- **ClientRect fingerprinting** — `getClientRects()` and `getBoundingClientRect()` now return noise-adjusted values matching real hardware variance.
+- **Canvas GPU noise model** — GPU fingerprints use a realistic noise model with optimized text rendering, improving canvas fingerprint diversity.
+- **Docker security hardening** — container now runs as a non-root user with Chrome's setuid sandbox, removing the need for `--cap-add=SYS_ADMIN`.
+- **colorDepth accuracy** — display server upgraded to support depth 32, so `screen.colorDepth` now correctly reports 32 to match real Windows environments.
+- **CDP connection stability** — WebSocket ping/pong keepalive prevents idle CDP connections from being dropped.
+
+### Fixed
+- **VNC cleanup** — VNC teardown now completes reliably even if the browser kill step hangs.
+- **`keepAlive` flag** — browsers with `keepAlive` enabled are no longer prematurely killed during disconnect cleanup.
+
+---
 
 ## [0.1.32] - 2026-03-10
 

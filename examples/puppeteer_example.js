@@ -29,8 +29,8 @@ const BROWSER_CONFIG = {
   headless: false,
   os: 'windows',        // android and windows tested; macos and linux experimental
   browser_name: 'chrome',
-  browser_version_min: 144,
-  browser_version_max: 144,
+  browser_version_min: 146,
+  browser_version_max: 146,
   // proxy: 'http://username:password@host:port',
 };
 

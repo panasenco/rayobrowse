@@ -3,9 +3,11 @@ services:
     image: rayobyte/rayobrowse:latest
     restart: unless-stopped
     shm_size: '2g'
+    security_opt:
+      - seccomp=unconfined
     ports:
       - "${RAYOBROWSE_PORT:-9222}:9222"
-      - "6080:6080"
+      - "6080-6119:6080-6119"
     volumes:
       - rayobrowse-data:/data
     env_file:
