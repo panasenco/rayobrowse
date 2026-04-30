@@ -98,7 +98,6 @@ test suites.
 | demo.fingerprint.com/playground | ✅                                          |
 | BrowserScan                     | ✅                                          |
 | PixelScan                       | ✅                                          |
-| CDP clients                     | ✅ Playwright, Puppeteer, Selenium, raw CDP |
 
 
 <p align="center">
