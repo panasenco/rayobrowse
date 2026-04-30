@@ -7,7 +7,7 @@ rather than a bare port, a lightweight local HTTP shim is started to bridge
 Selenium/ChromeDriver to the daemon.
 
 Prerequisites:
-    pip install rayobrowse selenium webdriver-manager
+    pip install httpx selenium webdriver-manager
     Docker container running: docker compose up -d
 
 Usage:
@@ -24,7 +24,7 @@ import urllib.request
 from contextlib import contextmanager
 from urllib.parse import urlparse
 
-from rayobrowse import create_browser
+import httpx
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
@@ -101,25 +101,30 @@ def main():
     on port 9222). ChromeDriver is auto-downloaded to match the browser version.
     """
 
-    # --- Define fingerprint filters ---
-    target_os = "windows"  # android and windows tested; macos and linux experimental
-    target_browser = "chrome"
-    version_min = 146
-    version_max = 146
+    endpoint = "http://localhost:9222"
+    params = {
+        "os": "windows",
+        "headless": "false",
+        "vnc": "true",
+        "browser_name": "chrome",
+        "browser_version_min": "146",
+        "browser_version_max": "146",
+        # "proxy": "http://username:password@host:port",
+    }
 
-    logging.info(f"Requesting browser: OS={target_os}, Chrome {version_min}-{version_max}")
+    logging.info("Requesting browser via HTTP /connect")
 
     try:
-        # Create a browser via the daemon (Docker container must be running on port 9222)
-        ws_url = create_browser(
-            headless=False,
-            target_os=target_os,
-            browser_name=target_browser,
-            browser_version_min=version_min,
-            browser_version_max=version_max,
-            #proxy="http://username:password@host:port",
+        resp = httpx.get(
+            f"{endpoint}/connect",
+            params=params,
+            timeout=120,
         )
+        resp.raise_for_status()
+        ws_url = resp.text.strip()
+        vnc_url = resp.headers.get("x-vnc-url") or "http://localhost:6080/vnc.html"
         logging.info(f"Browser ready: {ws_url}")
+        logging.info("To view your browser in VNC go to: %s", vnc_url)
 
         # Detect Chrome version to download the matching ChromeDriver
         parsed = urlparse(ws_url)

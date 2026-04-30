@@ -1,5 +1,74 @@
 # Changelog
 
+## [0.2.1] - 2026-04-30
+
+### Changed
+
+- **Major anti-fingerprinting update** - all tests pass at demo.fingerprint.com/playground inside the Docker environment hosted on a GPU-less Linux server when using a Windows fingerprint.
+
+---
+
+## [0.2.0] - 2026-04-17
+
+### Breaking
+
+- **`GET /connect` is now HTTP-only.**  Previously `/connect` upgraded to a
+  WebSocket and proxied CDP through the daemon.  It now responds with a plain
+  `text/plain` body containing the CDP WebSocket URL (`ws://<host>/cdp/<id>`)
+  plus `x-session-id` and (optional) `x-vnc-url` response headers — identical
+  to the cloud gateway.  Attempting to send an `Upgrade: websocket` request
+  to `/connect` now returns HTTP 400.
+- **Clients must upgrade.**  Use `rayobrowse>=2.2.0` (Python) or
+  `rayobrowse@0.3.0` (Node) — both of which now always issue an HTTP GET and
+  return the real CDP URL to hand to Playwright/Puppeteer.  Old SDKs that
+  hardcoded `ws://localhost:9222/connect?…` will fail.
+
+### Added
+
+- **Cloud-parity `/api/*` routes**: `POST /api/browser/create`,
+  `POST /api/browser/close`, `GET /api/browser/{id}/status`,
+  `GET /api/browsers`, `POST /api/browser/status/bulk`.  Response bodies are
+  `camelCase` and match the cloud gateway exactly.
+- **`keepAlive=` and `maxLifetime=` query params on `/connect`** —
+  client-controlled browser lifecycle.  `keepAlive=true` persists the browser
+  across CDP disconnects; `maxLifetime` (seconds) hard-caps session lifetime.
+- **`sessionId=` query param on `/connect`** — reconnect to an existing
+  browser without creating a new one.
+- **`vnc=true` query param on `/connect`** — causes `x-vnc-url` to appear in
+  the response headers for live session viewing.
+
+### Deprecated
+
+- Legacy routes `POST /browser`, `GET /browser/{id}`, `DELETE /browser/{id}`,
+  `GET /browsers` still work but log a one-shot deprecation warning the first
+  time they are called.  Migrate to the `/api/*` equivalents.
+
+### Migration
+
+Before (old SDK + old daemon):
+
+```python
+from rayobrowse import create_browser
+ws_url = create_browser(headless=False)
+# ws_url was ws://localhost:9222/connect?headless=false&...
+# Playwright would upgrade it to a WebSocket and the daemon created the browser on connect.
+```
+
+After (`rayobrowse>=2.2.0`):
+
+```python
+from rayobrowse import Rayobrowse
+client = Rayobrowse(endpoint="http://localhost:9222")  # or cloud URL — same code
+cdp_url = client.connect_url(headless=False, os="windows", vnc=True)
+# cdp_url is ws://localhost:9222/cdp/<browser_id>, ready for Playwright.
+# client.last_vnc_url  -> noVNC URL if vnc=True
+# client.last_session_id -> the new session id
+```
+
+The `create_browser()` compat shim from `rayobrowse` still works identically;
+only the URL scheme returned changed (you no longer get a `/connect?...` URL,
+you get a direct `/cdp/...` URL — which Playwright uses the same way).
+
 ## [0.1.33] - 2026-03-27
 
 ### Added

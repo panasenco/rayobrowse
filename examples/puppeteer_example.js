@@ -1,7 +1,7 @@
 /**
  * Puppeteer example for Rayobyte Stealth Browser.
  *
- * This script creates a stealth browser via the daemon REST API and
+ * This script creates a stealth browser via HTTP /connect and
  * controls it with Puppeteer over the CDP WebSocket endpoint.
  *
  * Prerequisites:
@@ -22,46 +22,40 @@ const puppeteer = require('puppeteer-core');
 // ── Config ───────────────────────────────────────────────────────────────────
 
 const DAEMON_ENDPOINT = process.env.RAYOBYTE_ENDPOINT || 'http://localhost:9222';
-const API_KEY = process.env.STEALTH_BROWSER_API_KEY || '';
 
 // Fingerprint filters — adjust as needed
 const BROWSER_CONFIG = {
-  headless: false,
+  headless: 'false',
   os: 'windows',        // android and windows tested; macos and linux experimental
   browser_name: 'chrome',
-  browser_version_min: 146,
-  browser_version_max: 146,
+  browser_version_min: '146',
+  browser_version_max: '146',
+  vnc: 'true',
   // proxy: 'http://username:password@host:port',
 };
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
- * Create a stealth browser via the daemon REST API.
- * @returns {Promise<string>} CDP WebSocket URL
+ * Create a stealth browser via HTTP /connect.
+ * @returns {Promise<{wsUrl: string, vncUrl: string | null}>}
  */
 async function createBrowser() {
-  const payload = { ...BROWSER_CONFIG };
-  if (API_KEY) payload.api_key = API_KEY;
+  const url = new URL(`${DAEMON_ENDPOINT}/connect`);
+  for (const [key, value] of Object.entries(BROWSER_CONFIG)) {
+    if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+  }
 
-  const resp = await fetch(`${DAEMON_ENDPOINT}/browser`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
+  const resp = await fetch(url);
 
   if (!resp.ok) {
     throw new Error(`Daemon returned HTTP ${resp.status}`);
   }
 
-  const data = await resp.json();
-  if (!data.success) {
-    throw new Error(data.error?.message || 'Browser creation failed');
-  }
-
-  // Normalize 0.0.0.0 → localhost for local Docker setups
-  const wsUrl = data.data.ws_endpoint.replace('0.0.0.0', 'localhost');
-  return wsUrl;
+  return {
+    wsUrl: (await resp.text()).trim(),
+    vncUrl: resp.headers.get('x-vnc-url') || 'http://localhost:6080/vnc.html',
+  };
 }
 
 // ── Main ─────────────────────────────────────────────────────────────────────
@@ -69,8 +63,9 @@ async function createBrowser() {
 async function main() {
   console.log(`Creating browser (OS=${BROWSER_CONFIG.os}, Chrome ${BROWSER_CONFIG.browser_version_min}-${BROWSER_CONFIG.browser_version_max})...`);
 
-  const wsUrl = await createBrowser();
+  const { wsUrl, vncUrl } = await createBrowser();
   console.log(`Browser ready: ${wsUrl}`);
+  console.log(`To view your browser in VNC go to: ${vncUrl}`);
 
   // Connect to the browser via the CDP WebSocket
   const browser = await puppeteer.connect({ browserWSEndpoint: wsUrl });

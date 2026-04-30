@@ -1,6 +1,7 @@
 import logging
 import sys
-from rayobrowse import create_browser
+
+import httpx
 from playwright.sync_api import sync_playwright
 
 # Configure basic logging
@@ -15,32 +16,37 @@ def main():
     creation via the daemon.
 
     Prerequisites:
-        pip install rayobrowse playwright
+        pip install httpx playwright
     """
 
-    # --- Define fingerprint filters ---
-    target_os = "windows"  # android and windows tested; macos and linux experimental
-    target_browser = "chrome"
-    version_min = 146
-    version_max = 146
+    endpoint = "http://localhost:9222"
+    params = {
+        "os": "windows",
+        "headless": "false",
+        "vnc": "true",
+        "browser_name": "chrome",
+        "browser_version_min": "146",
+        "browser_version_max": "146",
+        # "proxy": "http://username:password@host:port",
+    }
 
-    logging.info(f"Requesting browser: OS={target_os}, Chrome {version_min}-{version_max}")
+    logging.info("Requesting browser via HTTP /connect")
 
     try:
-        # Create a browser via the daemon (Docker container must be running on port 9222)
-        ws_url = create_browser(
-            headless=False,
-            target_os=target_os,
-            browser_name=target_browser,
-            browser_version_min=version_min,
-            browser_version_max=version_max,
-            #proxy="http://username:password@host:port",
+        resp = httpx.get(
+            f"{endpoint}/connect",
+            params=params,
+            timeout=120,
         )
-        logging.info(f"Browser ready: {ws_url}")
+        resp.raise_for_status()
+        cdp_url = resp.text.strip()
+        vnc_url = resp.headers.get("x-vnc-url") or "http://localhost:6080/vnc.html"
+        logging.info("Browser ready: %s", cdp_url)
+        logging.info("To view your browser in VNC go to: %s", vnc_url)
 
         # Connect to the browser via CDP WebSocket
         with sync_playwright() as p:
-            browser = p.chromium.connect_over_cdp(ws_url)
+            browser = p.chromium.connect_over_cdp(cdp_url)
 
             # Get the default page (or create one)
             context = browser.contexts[0] if browser.contexts else browser.new_context()

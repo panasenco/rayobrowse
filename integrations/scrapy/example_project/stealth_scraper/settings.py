@@ -3,10 +3,18 @@ SPIDER_MODULES = ["stealth_scraper.spiders"]
 NEWSPIDER_MODULE = "stealth_scraper.spiders"
 
 # --- rayobrowse + scrapy-playwright ----------------------------------------
-# Connect to rayobrowse's /connect endpoint. A stealth browser is created
-# automatically when Scrapy starts and cleaned up when it disconnects.
+import httpx
+
+# Request a CDP URL from rayobrowse's HTTP /connect endpoint. A stealth browser
+# is created and cleaned up when Scrapy disconnects.
 # Change the query params to customize the fingerprint (os, proxy, etc).
-PLAYWRIGHT_CDP_URL = "ws://localhost:9222/connect?headless=true&os=windows"
+_resp = httpx.get(
+    "http://localhost:9222/connect",
+    params={"headless": "true", "os": "windows"},
+    timeout=120,
+)
+_resp.raise_for_status()
+PLAYWRIGHT_CDP_URL = _resp.text.strip()
 
 # Use Playwright as the download handler for all requests.
 DOWNLOAD_HANDLERS = {

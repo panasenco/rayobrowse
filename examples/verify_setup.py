@@ -15,7 +15,7 @@ Exit codes:
 
 Prerequisites:
     docker compose up -d
-    pip install rayobrowse playwright
+    pip install httpx playwright
 """
 
 import json
@@ -45,22 +45,22 @@ def main() -> int:
 
     # ── 2. Create a browser ──────────────────────────────────────────────────
     try:
-        from rayobrowse import create_browser
+        import httpx
     except ImportError:
-        log.error("rayobrowse not installed. Run: pip install rayobrowse")
+        log.error("httpx not installed. Run: pip install httpx")
         return 1
 
     log.info("Requesting headless browser...")
     try:
-        ws_url = create_browser(headless=True, target_os="windows")
+        resp = httpx.get(
+            "http://localhost:9222/connect",
+            params={"headless": "true", "os": "windows"},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        ws_url = resp.text.strip()
     except Exception as e:
-        msg = str(e)
-        log.error("create_browser() failed: %s", msg)
-        if "TermsAcceptanceRequired" in msg or "STEALTH_BROWSER_ACCEPT_TERMS" in msg:
-            log.error(
-                "Set STEALTH_BROWSER_ACCEPT_TERMS=true in .env, "
-                "then run: docker compose up -d"
-            )
+        log.error("GET /connect failed: %s", e)
         return 1
 
     log.info("Browser ready: %s", ws_url)
