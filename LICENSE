@@ -12,15 +12,6 @@ furnished to do so, subject to the following conditions:
 The above copyright notice and this permission notice shall be included in all
 copies or substantial portions of the Software.
 
-This MIT License applies to the repository wrapper, examples, documentation,
-configuration, and other source files included in this repository.
-
-The rayobrowse Browser Binary is licensed separately under the rayobrowse
-Browser Binary License. See BROWSER_BINARY_LICENSE.md. The MIT License does
-not grant rights to use, copy, distribute, sublicense, reverse engineer, or
-commercialize the rayobrowse Browser Binary except as allowed by that separate
-license.
-
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
