@@ -105,18 +105,28 @@ playwright.chromium.connect_over_cdp(cdp_url)
 **Python (Playwright):**
 
 ```python
+import os
 import httpx
 from playwright.sync_api import sync_playwright
 
+# Optional: set AUTOMATION_PROXY=http://user:pass@host:port to route all traffic
+# through a proxy (auto-matches timezone/locale to the proxy's geolocation).
+proxy = os.environ.get("AUTOMATION_PROXY")
+
+params = {"os": "windows", "headless": "false", "vnc": "true"}
+if proxy:
+    params["proxy"] = proxy
+
 resp = httpx.get(
     "http://localhost:9222/connect",
-    params={"os": "windows", "headless": "false", "vnc": "true"},
+    params=params,
     timeout=120,
 )
 resp.raise_for_status()
 
 cdp_url = resp.text.strip()
 vnc_url = resp.headers.get("x-vnc-url") or "http://localhost:6080/vnc.html"
+print(f"\n👁  Watch live in your browser → {vnc_url}\n")
 
 with sync_playwright() as p:
     browser = p.chromium.connect_over_cdp(cdp_url)
@@ -124,7 +134,6 @@ with sync_playwright() as p:
     page = context.pages[0] if context.pages else context.new_page()
     page.goto("https://example.com")
     print(page.title())
-    print(f"Watch live at: {vnc_url}")
     browser.close()
 ```
 
@@ -133,16 +142,22 @@ with sync_playwright() as p:
 ```js
 const { chromium } = require('playwright');
 
-const resp = await fetch('http://localhost:9222/connect?os=windows&headless=false&vnc=true');
+// Optional: set AUTOMATION_PROXY=http://user:pass@host:port to route all traffic
+// through a proxy (auto-matches timezone/locale to the proxy's geolocation).
+const proxy = process.env.AUTOMATION_PROXY;
+const params = new URLSearchParams({ os: 'windows', headless: 'false', vnc: 'true' });
+if (proxy) params.set('proxy', proxy);
+
+const resp = await fetch(`http://localhost:9222/connect?${params}`);
 const cdpUrl = (await resp.text()).trim();
 const vncUrl = resp.headers.get('x-vnc-url') || 'http://localhost:6080/vnc.html';
+console.log(`\n👁  Watch live in your browser → ${vncUrl}\n`);
 
 const browser = await chromium.connectOverCDP(cdpUrl);
 const context = browser.contexts()[0] || await browser.newContext();
 const page = context.pages()[0] || await context.newPage();
 await page.goto('https://example.com');
 console.log(await page.title());
-console.log(`Watch live at: ${vncUrl}`);
 await browser.close();
 ```
 
@@ -151,8 +166,16 @@ await browser.close();
 ```js
 const puppeteer = require('puppeteer-core');
 
-const resp = await fetch('http://localhost:9222/connect?os=windows&headless=false');
+// Optional: set AUTOMATION_PROXY=http://user:pass@host:port to route all traffic
+// through a proxy (auto-matches timezone/locale to the proxy's geolocation).
+const proxy = process.env.AUTOMATION_PROXY;
+const params = new URLSearchParams({ os: 'windows', headless: 'false', vnc: 'true' });
+if (proxy) params.set('proxy', proxy);
+
+const resp = await fetch(`http://localhost:9222/connect?${params}`);
 const cdpUrl = (await resp.text()).trim();
+const vncUrl = resp.headers.get('x-vnc-url') || 'http://localhost:6080/vnc.html';
+console.log(`\n👁  Watch live in your browser → ${vncUrl}\n`);
 
 const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
 const page = (await browser.pages())[0] || await browser.newPage();
@@ -167,7 +190,7 @@ await browser.disconnect();
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `headless` | `true` | `true` = headless (production); `false` = headful with Xvnc |
+| `headless` | `true` | `true` = headless (no display); `false` = headful with Xvnc — **use `false` in all scripts for realism and observability** |
 | `os` | `linux` | Fingerprint OS: `windows` ✅ (recommended), `android` ✅, `linux`, `macos` |
 | `browser_version_min` | latest | Min Chrome version to emulate (match to `146` for best results) |
 | `browser_version_max` | latest | Max Chrome version to emulate (match to `146` for best results) |
@@ -185,8 +208,12 @@ await browser.disconnect();
 **Recommended defaults for best stealth:**
 
 ```
-os=windows&browser_version_min=146&browser_version_max=146
+os=windows&headless=false&vnc=true&browser_version_min=146&browser_version_max=146
 ```
+
+Headful mode (`headless=false`) renders a real display, which avoids headless-detection
+heuristics that many anti-bot systems check. Always pair it with `vnc=true` so you and
+the user can observe the browser live.
 
 ---
 
@@ -217,20 +244,36 @@ os=windows&browser_version_min=146&browser_version_max=146
 
 ### Web scraping with a proxy
 
+Set `AUTOMATION_PROXY=http://user:pass@proxy-host:port` in your environment before
+running the script. rayobrowse will automatically match the timezone and locale to
+the proxy's geolocation, strengthening fingerprint coherence.
+
 ```python
+import os
+import httpx
+from playwright.sync_api import sync_playwright
+
+proxy = os.environ.get("AUTOMATION_PROXY")  # e.g. http://user:pass@proxy-host:port
+
+params = {
+    "headless": "false",
+    "os": "windows",
+    "vnc": "true",
+    "browser_version_min": "146",
+    "browser_version_max": "146",
+}
+if proxy:
+    params["proxy"] = proxy
+
 resp = httpx.get(
     "http://localhost:9222/connect",
-    params={
-        "headless": "true",
-        "os": "windows",
-        "proxy": "http://user:pass@proxy-host:port",
-        "browser_version_min": "146",
-        "browser_version_max": "146",
-    },
+    params=params,
     timeout=120,
 )
 resp.raise_for_status()
 cdp_url = resp.text.strip()
+vnc_url = resp.headers.get("x-vnc-url") or "http://localhost:6080/vnc.html"
+print(f"\n👁  Watch live in your browser → {vnc_url}\n")
 
 with sync_playwright() as p:
     browser = p.chromium.connect_over_cdp(cdp_url)
@@ -246,8 +289,8 @@ Useful for AI agents or multi-step workflows where you need the same browser sta
 across separate script invocations.
 
 ```bash
-# Create a keep-alive browser
-curl -i "http://localhost:9222/connect?os=windows&keepAlive=true&vnc=true"
+# Create a keep-alive headful browser
+curl -i "http://localhost:9222/connect?os=windows&headless=false&keepAlive=true&vnc=true"
 # Response headers:
 #   x-session-id: br_59245e8658532863
 #   x-vnc-url: http://localhost:6080/vnc.html?path=vnc/br_59245e8658532863&token=
@@ -259,12 +302,17 @@ curl "http://localhost:9222/connect?sessionId=br_59245e8658532863"
 Python SDK equivalent:
 
 ```python
+import os
 from rayobrowse import Rayobrowse
 from playwright.sync_api import sync_playwright
 
+proxy = os.environ.get("AUTOMATION_PROXY")  # optional: http://user:pass@host:port
+
 client = Rayobrowse(endpoint="http://localhost:9222")
-ws_url = client.connect_url(os="windows", keep_alive=True, vnc=True)
+ws_url = client.connect_url(os="windows", headless=False, vnc=True, keep_alive=True,
+                            **({"proxy": proxy} if proxy else {}))
 session_id = client.last_session_id
+print(f"\n👁  Watch live in your browser → {client.last_vnc_url}\n")
 
 with sync_playwright() as p:
     browser = p.chromium.connect_over_cdp(ws_url)
@@ -273,8 +321,9 @@ with sync_playwright() as p:
     browser.close()
 
 # Later — reconnect without losing browser state
-ws_url = client.reconnect_url(session_id, vnc=True)
-print(f"Resumed session, VNC: {client.last_vnc_url}")
+# Note: reconnect_url() returns the CDP URL; VNC URL is unchanged from the original session.
+ws_url = client.reconnect_url(session_id)
+print(f"Resumed session {session_id}")
 ```
 
 ### Inspect and close sessions
@@ -328,6 +377,20 @@ The API key can also be passed as `?token=YOUR_API_KEY` in the query string.
 | `RAYOBROWSE_PORT` | `9222` | Host port for the HTTP daemon |
 | `RAYOBYTE_ENDPOINT` | `http://localhost:9222` | Used by SDK and example scripts |
 | `RAYOBYTE_API_KEY` | — | Cloud API key, used by SDK and example scripts |
+| `AUTOMATION_PROXY` | — | Proxy URL (`http://user:pass@host:port`) forwarded to every `/connect` call; set once in the environment instead of hardcoding per script |
+
+### AUTOMATION_PROXY — agent guidance
+
+Whenever you write a script that calls `/connect`, read `AUTOMATION_PROXY` from the
+environment and pass it as the `proxy` parameter if it is set. Tell the user:
+
+> **Proxy:** If you want all browser traffic routed through a proxy, set
+> `AUTOMATION_PROXY=http://user:pass@host:port` before running this script.
+> rayobrowse will automatically match the timezone and locale to the proxy's
+> geolocation, so you don't need to touch the script itself.
+>
+> Only HTTP proxies are supported (`http://…`). SOCKS proxies are not currently
+> supported by rayobrowse.
 
 The container requires `shm_size: 2g` and `seccomp=unconfined` (both set in the
 bundled `assets/docker-compose.yml`). Budget ~300 MB RAM per concurrent browser.
