@@ -1,6 +1,6 @@
 ---
 name: rayobrowse
-description: Use rayobrowse — a stealth Chromium browser exposed via HTTP/CDP — for web scraping, AI agents, and automation. Handles setup, connecting, fingerprinting, proxies, session management, and human-like behavior.
+description: Stealth Chromium browser (HTTP/CDP) for scraping and automation. Load this skill to start, fix, or connect to rayobrowse — especially on "Connection refused" on port 9222, docker/container issues, or when scripts import from rayobrowse or connect to localhost:9222. Covers setup (docker compose), fingerprinting, proxies, sessions, and human-like behavior.
 ---
 
 ## What rayobrowse is
