@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.2] - 2026-05-22
+
+### Changed
+
+- **CPU Performance Increase** - rayobrowse's performance has now been increased. Various benchmarks confirm it is more efficient than vanilla Chrome, while still retaining its important fingerprint stealth. 
+
+---
+
 ## [0.2.1] - 2026-04-30
 
 ### Changed
