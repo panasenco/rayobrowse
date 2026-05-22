@@ -406,6 +406,8 @@ bundled `assets/docker-compose.yml`). Budget ~300 MB RAM per concurrent browser.
 | Playwright error: `/connect` is not a WebSocket | Connecting CDP client to the HTTP endpoint directly | Call HTTP `/connect` first, then connect to the returned CDP URL |
 | Site blocks the session | Fingerprint mismatch or bot-like behavior | Use `os=windows`, pin `browser_version_min/max=146`, add a proxy, slow down navigation |
 | noVNC unavailable | VNC not requested | Add `vnc=true` to the `/connect` call |
+| `ERR_TUNNEL_CONNECTION_FAILED` | Proxy config broken | Test proxy directly with `curl -x` against `httpbin.org/ip`; check for missing `http://` scheme in `AUTOMATION_PROXY` |
+| Rayobyte proxy returns `551 No Proxy` | Invalid geo-targeting suffix or state unavailable | Use `-region-statename` only — do **not** include `-country-XX` (Rayobyte doesn't support it and returns 551); if state is unavailable, try another or use bare credentials. See `014-features-proxy-support.md` |
 
 ---
 
