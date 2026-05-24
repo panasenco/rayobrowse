@@ -3,7 +3,94 @@ name: rayobrowse
 description: Stealth Chromium browser (HTTP/CDP) for scraping and automation. Load this skill to start, fix, or connect to rayobrowse — especially on "Connection refused" on port 9222, docker/container issues, or when scripts import from rayobrowse or connect to localhost:9222. Covers setup (docker compose), fingerprinting, proxies, sessions, and human-like behavior.
 ---
 
+## ⚡ Ad-hoc browsing: playwright-cli (token-efficient)
+
+**For ad-hoc browsing (research, quick checks, one-off interactions), use
+`playwright-cli` instead of writing Playwright scripts.** CLI commands save
+massive tokens when an AI agent is driving the browser interactively.
+
+For **scripted automation** (loops, conditionals, data pipelines, reusable
+skills), Python + Playwright remains the best approach — see SDK sections below.
+
+### Quick start with rayobrowse
+
+```bash
+# 1. Get a CDP URL from rayobrowse
+CDP_URL=$(curl -s "http://localhost:9222/connect?os=windows&headless=false&vnc=true")
+
+# 2. Attach playwright-cli to it
+playwright-cli attach --cdp "$CDP_URL"
+
+# 3. Browse with simple commands
+playwright-cli goto "https://duckduckgo.com"
+playwright-cli snapshot                    # see page structure (refs)
+playwright-cli click "ref=e22"             # click by element ref
+playwright-cli type "search query"
+playwright-cli press Enter
+playwright-cli screenshot                  # save screenshot
+playwright-cli close                       # done
+```
+
+### Why playwright-cli > raw Playwright code
+
+| | playwright-cli | Python/Node Playwright |
+|---|---|---|
+| **Tokens per action** | ~10 | ~50-200 |
+| **Setup boilerplate** | 2 lines (curl + attach) | 15-30 lines |
+| **Agent-friendly** | Yes — bash commands | Needs script files |
+| **Snapshot** | Built-in YAML with element refs | Manual `page.content()` |
+| **Sessions** | Automatic via `-s=name` | Manual session management |
+
+### Key commands
+
+| Command | What it does |
+|---------|-------------|
+| `attach --cdp <url>` | Connect to rayobrowse CDP session |
+| `goto <url>` | Navigate |
+| `snapshot [target]` | Page structure as YAML with clickable refs |
+| `click <target>` | Click element (by ref, text, or CSS) |
+| `fill <target> <text>` | Fill input field |
+| `type <text>` | Type into focused element |
+| `press <key>` | Keyboard key (Enter, Tab, etc.) |
+| `screenshot [target]` | Save screenshot |
+| `select <target> <val>` | Select dropdown option |
+| `upload <file>` | Upload file |
+| `tab-list` | List open tabs |
+| `tab-new [url]` | Open new tab |
+| `close` | Close browser |
+
+### Multi-session example
+
+```bash
+# Session 1: research
+CDP1=$(curl -s "http://localhost:9222/connect?os=windows&headless=false&vnc=true")
+playwright-cli attach research --cdp "$CDP1"
+playwright-cli -s=research goto "https://example.com"
+
+# Session 2: different site, same time
+CDP2=$(curl -s "http://localhost:9222/connect?os=windows&headless=false&vnc=true")
+playwright-cli attach work --cdp "$CDP2"
+playwright-cli -s=work goto "https://other-site.com"
+
+# Switch between them freely
+playwright-cli -s=research snapshot
+playwright-cli -s=work click "Sign In"
+```
+
+### Install
+
+```bash
+npm install -g @playwright/cli@latest
+playwright-cli install --skills   # optional: installs agent skills
+```
+
+---
+
 ## What rayobrowse is
+
+> **When to use what**: `playwright-cli` (above) for ad-hoc browsing —
+> research, quick checks, one-off interactions. Python/Node SDK (below)
+> for scripted automation — loops, conditionals, data pipelines, reusable skills.
 
 rayobrowse is a patched Chromium browser that runs inside Docker. It defeats bot
 detection by spoofing 50+ fingerprint signals (User-Agent, WebGL, canvas, fonts,
