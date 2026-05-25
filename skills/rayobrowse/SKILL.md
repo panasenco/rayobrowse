@@ -437,6 +437,61 @@ curl -X POST "http://localhost:9222/api/browser/close" \
 > VNC stream may appear laggy — this is a display artifact only; the remote browser
 > runs at full speed and appears fast to target sites.
 
+### Retrying on proxy tunnel failures
+
+Residential proxy pools (e.g. Rayobyte) rotate exit IPs per connection. Some exit
+IPs may be dead or blocked, causing `ERR_TUNNEL_CONNECTION_FAILED`. Since the proxy
+IP is assigned **per `/connect` session**, retrying `page.goto()` on the same browser
+won't help — you must close the browser and request a new `/connect` session to draw
+a fresh exit IP.
+
+Wrap the **entire browser session** (from `/connect` through `browser.close()`) in a
+tenacity retry that matches the tunnel error:
+
+```python
+import logging
+from tenacity import (
+    retry,
+    retry_if_exception_message,
+    stop_after_attempt,
+    wait_fixed,
+    before_sleep_log,
+)
+
+logger = logging.getLogger(__name__)
+
+@retry(
+    retry=retry_if_exception_message(match=r".*ERR_TUNNEL_CONNECTION_FAILED"),
+    stop=stop_after_attempt(3),
+    wait=wait_fixed(2),
+    before_sleep=before_sleep_log(logger, logging.WARNING),
+    reraise=True,
+)
+def scrape_with_proxy(url: str) -> str:
+    resp = httpx.get(
+        "http://localhost:9222/connect",
+        params={"os": "windows", "headless": "false", "vnc": "true",
+                "proxy": os.environ["AUTOMATION_PROXY"]},
+        timeout=120,
+    )
+    resp.raise_for_status()
+    cdp_url = resp.text.strip()
+
+    with sync_playwright() as pw:
+        browser = pw.chromium.connect_over_cdp(cdp_url)
+        page = browser.contexts[0].pages[0]
+        page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+        content = page.content()
+        browser.close()
+    return content
+```
+
+Key points:
+- The retry wraps the whole function so each attempt gets a **new browser → new proxy IP**.
+- `reraise=True` ensures the original error propagates after all attempts are exhausted.
+- `wait_fixed(2)` gives the proxy pool a moment between attempts.
+- Only `ERR_TUNNEL_CONNECTION_FAILED` triggers a retry; other errors fail immediately.
+
 ---
 
 ## Cloud usage
@@ -493,7 +548,7 @@ bundled `assets/docker-compose.yml`). Budget ~300 MB RAM per concurrent browser.
 | Playwright error: `/connect` is not a WebSocket | Connecting CDP client to the HTTP endpoint directly | Call HTTP `/connect` first, then connect to the returned CDP URL |
 | Site blocks the session | Fingerprint mismatch or bot-like behavior | Use `os=windows`, pin `browser_version_min/max=146`, add a proxy, slow down navigation |
 | noVNC unavailable | VNC not requested | Add `vnc=true` to the `/connect` call |
-| `ERR_TUNNEL_CONNECTION_FAILED` | Proxy config broken | Test proxy directly with `curl -x` against `httpbin.org/ip`; check for missing `http://` scheme in `AUTOMATION_PROXY` |
+| `ERR_TUNNEL_CONNECTION_FAILED` | Proxy exit IP is dead/blocked, or proxy config broken | Residential proxies rotate IPs — retry with a **new `/connect` session** to draw a fresh exit IP. If persistent, test proxy with `curl -x` against `httpbin.org/ip`; check for missing `http://` scheme in `AUTOMATION_PROXY`. See "Retrying on proxy tunnel failures" above. |
 | Rayobyte proxy returns `551 No Proxy` | Invalid geo-targeting suffix or state unavailable | Use `-region-statename` only — do **not** include `-country-XX` (Rayobyte doesn't support it and returns 551); if state is unavailable, try another or use bare credentials. See `014-features-proxy-support.md` |
 
 ---
