@@ -6,48 +6,24 @@ description: Stealth Chromium browser (HTTP/CDP) for scraping and automation. Lo
 ## ⚡ Ad-hoc browsing: playwright-cli (token-efficient)
 
 **For ad-hoc browsing (research, quick checks, one-off interactions), use
-`playwright-cli` instead of writing Playwright scripts.** CLI commands save
-massive tokens when an AI agent is driving the browser interactively.
-
-For **scripted automation** (loops, conditionals, data pipelines, reusable
-skills), Python + Playwright remains the best approach — see SDK sections below.
-
-### Quick start with rayobrowse
+`playwright-cli` instead of writing Playwright scripts.** For scripted automation
+(loops, conditionals, data pipelines), use Python + Playwright (see below).
 
 ```bash
-# 1. Get a CDP URL from rayobrowse
 CDP_URL=$(curl -s "http://localhost:9222/connect?os=windows&headless=false&vnc=true")
-
-# 2. Attach playwright-cli to it
 playwright-cli attach --cdp "$CDP_URL"
-
-# 3. Browse with simple commands
 playwright-cli goto "https://duckduckgo.com"
-playwright-cli snapshot                    # see page structure (refs)
-playwright-cli click "ref=e22"             # click by element ref
-playwright-cli type "search query"
-playwright-cli press Enter
-playwright-cli screenshot                  # save screenshot
-playwright-cli close                       # done
+playwright-cli snapshot          # page structure with clickable refs
+playwright-cli click "ref=e22"
+playwright-cli screenshot
+playwright-cli close
 ```
-
-### Why playwright-cli > raw Playwright code
-
-| | playwright-cli | Python/Node Playwright |
-|---|---|---|
-| **Tokens per action** | ~10 | ~50-200 |
-| **Setup boilerplate** | 2 lines (curl + attach) | 15-30 lines |
-| **Agent-friendly** | Yes — bash commands | Needs script files |
-| **Snapshot** | Built-in YAML with element refs | Manual `page.content()` |
-| **Sessions** | Automatic via `-s=name` | Manual session management |
-
-### Key commands
 
 | Command | What it does |
 |---------|-------------|
 | `attach --cdp <url>` | Connect to rayobrowse CDP session |
 | `goto <url>` | Navigate |
-| `snapshot [target]` | Page structure as YAML with clickable refs |
+| `snapshot [target]` | Page structure as YAML with element refs |
 | `click <target>` | Click element (by ref, text, or CSS) |
 | `fill <target> <text>` | Fill input field |
 | `type <text>` | Type into focused element |
@@ -55,165 +31,76 @@ playwright-cli close                       # done
 | `screenshot [target]` | Save screenshot |
 | `select <target> <val>` | Select dropdown option |
 | `upload <file>` | Upload file |
-| `tab-list` | List open tabs |
-| `tab-new [url]` | Open new tab |
+| `tab-list` / `tab-new [url]` | Manage tabs |
 | `close` | Close browser |
-
-### Multi-session example
-
-```bash
-# Session 1: research
-CDP1=$(curl -s "http://localhost:9222/connect?os=windows&headless=false&vnc=true")
-playwright-cli attach research --cdp "$CDP1"
-playwright-cli -s=research goto "https://example.com"
-
-# Session 2: different site, same time
-CDP2=$(curl -s "http://localhost:9222/connect?os=windows&headless=false&vnc=true")
-playwright-cli attach work --cdp "$CDP2"
-playwright-cli -s=work goto "https://other-site.com"
-
-# Switch between them freely
-playwright-cli -s=research snapshot
-playwright-cli -s=work click "Sign In"
-```
-
-### Install
-
-```bash
-npm install -g @playwright/cli@latest
-playwright-cli install --skills   # optional: installs agent skills
-```
 
 ---
 
 ## What rayobrowse is
 
-> **When to use what**: `playwright-cli` (above) for ad-hoc browsing —
-> research, quick checks, one-off interactions. Python/Node SDK (below)
-> for scripted automation — loops, conditionals, data pipelines, reusable skills.
-
-rayobrowse is a patched Chromium browser that runs inside Docker. It defeats bot
-detection by spoofing 50+ fingerprint signals (User-Agent, WebGL, canvas, fonts,
-screen, timezone, audio, WebRTC, …) so they tell a coherent story about a single
-real device. You connect via the standard Chrome DevTools Protocol (CDP), so any
-tool that speaks CDP — Playwright, Puppeteer, Selenium — works without changes.
-
-**Two deployment modes:**
+rayobrowse is a patched Chromium in Docker that defeats bot detection by spoofing
+50+ fingerprint signals coherently. Connect via CDP — Playwright, Puppeteer, or
+Selenium all work without changes.
 
 | Mode | Base URL | Auth |
 |------|----------|------|
-| Local (self-hosted, free) | `http://localhost:9222` | none |
-| Cloud (managed, early access) | `https://cloud.rayobrowse.com` | `x-api-key` header |
-
----
+| Local (self-hosted) | `http://localhost:9222` | none |
+| Cloud (managed) | `https://cloud.rayobrowse.com` | `x-api-key` header or `?token=` |
 
 ## Prerequisites
 
-<prereqs>
-- Docker with Compose v2 (`docker compose`) installed.
-- The current user must be able to run `docker` without `sudo`.
-- Python 3.10+ **or** Node.js 18+ depending on which automation client is used.
-- About 2 GB free RAM per browser instance.
-</prereqs>
-
----
+- Docker with Compose v2, user can run `docker` without `sudo`
+- Python 3.10+ or Node.js 18+
+- ~2 GB free RAM per browser instance
 
 ## Setup (local)
 
-<setup>
-
-1. **Start the container** using the bundled compose file in this skill's `assets/` folder.
-   Resolve the absolute path before running:
-
+1. **Start the container:**
    ```bash
    docker compose -f /path/to/skills/rayobrowse/assets/docker-compose.yml up -d
    ```
 
-   Or, if working inside the `rayobrowse` repo:
-
-   ```bash
-   cp .env.example .env          # default .env.example works for local dev
-   docker compose up -d
-   ```
-
-2. **Verify it is healthy:**
-
+2. **Verify health:**
    ```bash
    curl http://localhost:9222/health
-   # Expected: {"success": true, "data": {"status": "healthy", ...}}
    ```
+   If unhealthy, wait a few seconds or check `docker compose logs -f`.
 
-   If the health check fails, wait a few seconds and retry, or check logs:
-
+3. **Install client:**
    ```bash
-   docker compose logs -f
-   ```
-
-3. **Install the automation client** (choose one):
-
-   ```bash
-   # Playwright (Python)
    pip install httpx playwright && playwright install chromium
-
-   # Playwright (Node)
-   npm install playwright
-
-   # Puppeteer (Node)
-   npm install puppeteer-core
    ```
-
-</setup>
 
 ---
 
 ## Core usage pattern
 
-<core_pattern>
+**Never connect CDP clients directly to `/connect`.** It's an HTTP endpoint:
 
-**Never connect Playwright/Puppeteer/Selenium directly to `/connect`.**
-`/connect` is an HTTP endpoint, not a WebSocket. The correct flow is:
+1. `GET /connect` → returns a CDP WebSocket URL as plain text
+2. Pass that URL to `connect_over_cdp()` / `puppeteer.connect()`
+3. Browser closes when CDP disconnects (unless `keepAlive=true`)
 
-1. `GET /connect` → receive a CDP WebSocket URL as plain text.
-2. Pass that CDP URL to your automation client.
-3. The browser closes when the CDP session closes (unless `keepAlive=true`).
-
-```
-GET http://localhost:9222/connect?os=windows&headless=false
-                                ↓ plain-text response body
-ws://localhost:9222/cdp/<session-id>
-                                ↓ connect your CDP client here
-playwright.chromium.connect_over_cdp(cdp_url)
-```
-
-</core_pattern>
-
-### Minimal end-to-end example
-
-**Python (Playwright):**
+### Python example (Playwright)
 
 ```python
 import os
 import httpx
 from playwright.sync_api import sync_playwright
 
-# Optional: set AUTOMATION_PROXY=http://user:pass@host:port to route all traffic
-# through a proxy (auto-matches timezone/locale to the proxy's geolocation).
-proxy = os.environ.get("AUTOMATION_PROXY")
+proxy = os.environ.get("AUTOMATION_PROXY")  # http://user:pass@host:port
 
-params = {"os": "windows", "headless": "false", "vnc": "true"}
+params = {
+    "os": "windows", "headless": "false", "vnc": "true",
+    "browser_version_min": "146", "browser_version_max": "146",
+}
 if proxy:
     params["proxy"] = proxy
 
-resp = httpx.get(
-    "http://localhost:9222/connect",
-    params=params,
-    timeout=120,
-)
+resp = httpx.get("http://localhost:9222/connect", params=params, timeout=120)
 resp.raise_for_status()
-
 cdp_url = resp.text.strip()
-vnc_url = resp.headers.get("x-vnc-url") or "http://localhost:6080/vnc.html"
-print(f"\n👁  Watch live in your browser → {vnc_url}\n")
+vnc_url = resp.headers.get("x-vnc-url", "")
 
 with sync_playwright() as p:
     browser = p.chromium.connect_over_cdp(cdp_url)
@@ -224,261 +111,94 @@ with sync_playwright() as p:
     browser.close()
 ```
 
-**Node.js (Playwright):**
-
-```js
-const { chromium } = require('playwright');
-
-// Optional: set AUTOMATION_PROXY=http://user:pass@host:port to route all traffic
-// through a proxy (auto-matches timezone/locale to the proxy's geolocation).
-const proxy = process.env.AUTOMATION_PROXY;
-const params = new URLSearchParams({ os: 'windows', headless: 'false', vnc: 'true' });
-if (proxy) params.set('proxy', proxy);
-
-const resp = await fetch(`http://localhost:9222/connect?${params}`);
-const cdpUrl = (await resp.text()).trim();
-const vncUrl = resp.headers.get('x-vnc-url') || 'http://localhost:6080/vnc.html';
-console.log(`\n👁  Watch live in your browser → ${vncUrl}\n`);
-
-const browser = await chromium.connectOverCDP(cdpUrl);
-const context = browser.contexts()[0] || await browser.newContext();
-const page = context.pages()[0] || await context.newPage();
-await page.goto('https://example.com');
-console.log(await page.title());
-await browser.close();
-```
-
-**Node.js (Puppeteer):**
-
-```js
-const puppeteer = require('puppeteer-core');
-
-// Optional: set AUTOMATION_PROXY=http://user:pass@host:port to route all traffic
-// through a proxy (auto-matches timezone/locale to the proxy's geolocation).
-const proxy = process.env.AUTOMATION_PROXY;
-const params = new URLSearchParams({ os: 'windows', headless: 'false', vnc: 'true' });
-if (proxy) params.set('proxy', proxy);
-
-const resp = await fetch(`http://localhost:9222/connect?${params}`);
-const cdpUrl = (await resp.text()).trim();
-const vncUrl = resp.headers.get('x-vnc-url') || 'http://localhost:6080/vnc.html';
-console.log(`\n👁  Watch live in your browser → ${vncUrl}\n`);
-
-const browser = await puppeteer.connect({ browserWSEndpoint: cdpUrl });
-const page = (await browser.pages())[0] || await browser.newPage();
-await page.goto('https://example.com');
-console.log(await page.title());
-await browser.disconnect();
-```
+For Node.js (Playwright/Puppeteer) examples, see `024-integrations-playwright.md`
+and `025-integrations-puppeteer.md` in the references section.
 
 ---
 
-## `/connect` parameters reference
+## `/connect` parameters
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
-| `headless` | `true` | `true` = headless (no display); `false` = headful with Xvnc — **use `false` in all scripts for realism and observability** |
-| `os` | `linux` | Fingerprint OS: `windows` ✅ (recommended), `android` ✅, `linux`, `macos` |
-| `browser_version_min` | latest | Min Chrome version to emulate (match to `146` for best results) |
-| `browser_version_max` | latest | Max Chrome version to emulate (match to `146` for best results) |
-| `proxy` | none | `http://user:pass@host:port` — routes all traffic and auto-matches timezone |
-| `browser_language` | auto | `Accept-Language` value, e.g. `en-US` |
+| `headless` | `true` | `false` = headful with Xvnc — **use for realism + observability** |
+| `os` | `linux` | `windows` ✅ (recommended), `android` ✅, `linux`, `macos` |
+| `browser_version_min` | latest | Pin to `146` for best results |
+| `browser_version_max` | latest | Pin to `146` for best results |
+| `proxy` | none | `http://user:pass@host:port` — auto-matches timezone/locale |
+| `browser_language` | auto | `Accept-Language` value |
 | `ui_language` | auto | Browser UI locale |
-| `screen_width_min` | auto | Minimum screen width px, e.g. `1366` |
-| `screen_height_min` | auto | Minimum screen height px, e.g. `768` |
-| `vnc` | `false` | If `true`, response includes `x-vnc-url` header for live viewing |
-| `keepAlive` | `false` | Keep browser alive after CDP disconnect; use with `sessionId` to reconnect |
-| `sessionId` | none | Reconnect to an existing keep-alive session (`br_…`) |
+| `screen_width_min` | auto | Minimum screen width px |
+| `screen_height_min` | auto | Minimum screen height px |
+| `vnc` | `false` | Response includes `x-vnc-url` header for live viewing |
+| `keepAlive` | `false` | Keep browser alive after CDP disconnect |
+| `sessionId` | none | Reconnect to existing keep-alive session (`br_…`) |
 | `maxLifetime` | none | Hard session TTL in seconds |
-| `token` | none | API key as a query param (alternative to `x-api-key` header) |
+| `token` | none | API key as query param (alternative to `x-api-key` header) |
 
-**Recommended defaults for best stealth:**
-
-```
-os=windows&headless=false&vnc=true&browser_version_min=146&browser_version_max=146
-```
-
-Headful mode (`headless=false`) renders a real display, which avoids headless-detection
-heuristics that many anti-bot systems check. Always pair it with `vnc=true` so you and
-the user can observe the browser live.
+**Recommended:** `os=windows&headless=false&vnc=true&browser_version_min=146&browser_version_max=146`
 
 ---
 
 ## Stealth and human-like behavior
 
-<stealth>
-
-- **Always use `os=windows`** for the broadest, most tested fingerprint coverage.
-- **Pin the browser version** (`browser_version_min=146&browser_version_max=146`) —
-  a mismatched version is a cross-signal inconsistency detection systems flag immediately.
-- **Route through a proxy** when targeting geo-restricted or heavily protected sites;
-  rayobrowse auto-matches timezone and locale to the proxy's geolocation.
-- **Do not do things only a bot would do:**
-  - Don't navigate at machine speed from page to page; add short, random delays.
-  - Don't skip pages a real user would land on (cookie consent, landing pages).
-  - Don't batch hundreds of requests from the same session without pausing.
-- **Mouse movements are automatic**: rayobrowse applies Bezier-curve trajectories and
-  realistic click timing to standard `page.click()` / `page.mouse.move()` calls.
-  No code changes are required to benefit from this.
-- **Avoid CDP-only patterns** that leak automation intent (raw `evaluate()` injection
-  of large scripts on every page, unthrottled network intercept, etc.).
-
-</stealth>
+- **Always use `os=windows`** — broadest, most tested fingerprint coverage.
+- **Pin browser version** to `146` — mismatches are flagged by detection systems.
+- **Route through a proxy** for geo-restricted/protected sites (auto-matches tz/locale).
+- **Don't act like a bot:** add random delays, don't skip pages, don't batch hundreds of requests.
+- **Mouse movements are automatic:** Bezier curves + realistic click timing on all `page.click()` calls.
+- **Avoid CDP-only patterns** that leak intent (large `evaluate()` injections, unthrottled intercepts).
 
 ---
 
 ## Common workflows
 
-### Web scraping with a proxy
-
-Set `AUTOMATION_PROXY=http://user:pass@proxy-host:port` in your environment before
-running the script. rayobrowse will automatically match the timezone and locale to
-the proxy's geolocation, strengthening fingerprint coherence.
-
-```python
-import os
-import httpx
-from playwright.sync_api import sync_playwright
-
-proxy = os.environ.get("AUTOMATION_PROXY")  # e.g. http://user:pass@proxy-host:port
-
-params = {
-    "headless": "false",
-    "os": "windows",
-    "vnc": "true",
-    "browser_version_min": "146",
-    "browser_version_max": "146",
-}
-if proxy:
-    params["proxy"] = proxy
-
-resp = httpx.get(
-    "http://localhost:9222/connect",
-    params=params,
-    timeout=120,
-)
-resp.raise_for_status()
-cdp_url = resp.text.strip()
-vnc_url = resp.headers.get("x-vnc-url") or "http://localhost:6080/vnc.html"
-print(f"\n👁  Watch live in your browser → {vnc_url}\n")
-
-with sync_playwright() as p:
-    browser = p.chromium.connect_over_cdp(cdp_url)
-    page = browser.contexts[0].pages[0]
-    page.goto("https://target-site.com")
-    print(page.content())
-    browser.close()
-```
-
-### Keep-alive sessions (reconnectable browsers)
-
-Useful for AI agents or multi-step workflows where you need the same browser state
-across separate script invocations.
+### Keep-alive sessions
 
 ```bash
-# Create a keep-alive headful browser
+# Create — response headers include x-session-id and x-vnc-url
 curl -i "http://localhost:9222/connect?os=windows&headless=false&keepAlive=true&vnc=true"
-# Response headers:
-#   x-session-id: br_59245e8658532863
-#   x-vnc-url: http://localhost:6080/vnc.html?path=vnc/br_59245e8658532863&token=
 
-# Reconnect to the same browser later
+# Reconnect later
 curl "http://localhost:9222/connect?sessionId=br_59245e8658532863"
 ```
 
-Python SDK equivalent:
-
-```python
-import os
-from rayobrowse import Rayobrowse
-from playwright.sync_api import sync_playwright
-
-proxy = os.environ.get("AUTOMATION_PROXY")  # optional: http://user:pass@host:port
-
-client = Rayobrowse(endpoint="http://localhost:9222")
-ws_url = client.connect_url(os="windows", headless=False, vnc=True, keep_alive=True,
-                            **({"proxy": proxy} if proxy else {}))
-session_id = client.last_session_id
-print(f"\n👁  Watch live in your browser → {client.last_vnc_url}\n")
-
-with sync_playwright() as p:
-    browser = p.chromium.connect_over_cdp(ws_url)
-    page = browser.contexts[0].pages[0]
-    page.goto("https://example.com")
-    browser.close()
-
-# Later — reconnect without losing browser state
-# Note: reconnect_url() returns the CDP URL; VNC URL is unchanged from the original session.
-ws_url = client.reconnect_url(session_id)
-print(f"Resumed session {session_id}")
-```
-
-### Inspect and close sessions
+### Session management
 
 ```bash
-# List all active browsers
-curl "http://localhost:9222/api/browsers"
-
-# Get status of a specific session
-curl "http://localhost:9222/api/browser/br_59245e8658532863/status"
-
-# Explicitly close a session
+curl "http://localhost:9222/api/browsers"                          # list active
+curl "http://localhost:9222/api/browser/br_59245e8658532863/status" # status
 curl -X POST "http://localhost:9222/api/browser/close" \
   -H "Content-Type: application/json" \
-  -d '{"sessionId": "br_59245e8658532863"}'
+  -d '{"sessionId": "br_59245e8658532863"}'                        # close
 ```
 
 ### Debugging with VNC
 
-1. Start a headful browser with `headless=false&vnc=true`.
-2. Read the `x-vnc-url` response header.
-3. Open that URL in your local browser (noVNC, no install required).
-
-> VNC stream may appear laggy — this is a display artifact only; the remote browser
-> runs at full speed and appears fast to target sites.
+Start with `headless=false&vnc=true`, open the `x-vnc-url` in your browser (noVNC).
+VNC stream may appear laggy — display artifact only; the remote browser runs full speed.
 
 ### Retrying on proxy tunnel failures
 
-Residential proxy pools (e.g. Rayobyte) rotate exit IPs per connection. Some exit
-IPs may be dead or blocked, causing `ERR_TUNNEL_CONNECTION_FAILED`. Since the proxy
-IP is assigned **per `/connect` session**, retrying `page.goto()` on the same browser
-won't help — you must close the browser and request a new `/connect` session to draw
-a fresh exit IP.
-
-Wrap the **entire browser session** (from `/connect` through `browser.close()`) in a
-tenacity retry that matches the tunnel error:
+Residential proxies rotate exit IPs per connection. Some may be dead/blocked, causing
+`ERR_TUNNEL_CONNECTION_FAILED`. The proxy IP is fixed **per `/connect` session**, so
+retrying `page.goto()` won't help — wrap the **entire session** so each retry gets a
+new browser with a fresh exit IP:
 
 ```python
-import logging
-from tenacity import (
-    retry,
-    retry_if_exception_message,
-    stop_after_attempt,
-    wait_fixed,
-    before_sleep_log,
-)
-
-logger = logging.getLogger(__name__)
+from tenacity import retry, retry_if_exception_message, stop_after_attempt, wait_fixed
 
 @retry(
     retry=retry_if_exception_message(match=r".*ERR_TUNNEL_CONNECTION_FAILED"),
-    stop=stop_after_attempt(3),
-    wait=wait_fixed(2),
-    before_sleep=before_sleep_log(logger, logging.WARNING),
-    reraise=True,
+    stop=stop_after_attempt(3), wait=wait_fixed(2), reraise=True,
 )
-def scrape_with_proxy(url: str) -> str:
-    resp = httpx.get(
-        "http://localhost:9222/connect",
-        params={"os": "windows", "headless": "false", "vnc": "true",
-                "proxy": os.environ["AUTOMATION_PROXY"]},
-        timeout=120,
-    )
+def scrape(url: str) -> str:
+    resp = httpx.get("http://localhost:9222/connect",
+                     params={"os": "windows", "headless": "false",
+                             "proxy": os.environ["AUTOMATION_PROXY"]},
+                     timeout=120)
     resp.raise_for_status()
-    cdp_url = resp.text.strip()
-
     with sync_playwright() as pw:
-        browser = pw.chromium.connect_over_cdp(cdp_url)
+        browser = pw.chromium.connect_over_cdp(resp.text.strip())
         page = browser.contexts[0].pages[0]
         page.goto(url, wait_until="domcontentloaded", timeout=60_000)
         content = page.content()
@@ -486,29 +206,8 @@ def scrape_with_proxy(url: str) -> str:
     return content
 ```
 
-Key points:
-- The retry wraps the whole function so each attempt gets a **new browser → new proxy IP**.
-- `reraise=True` ensures the original error propagates after all attempts are exhausted.
-- `wait_fixed(2)` gives the proxy pool a moment between attempts.
-- Only `ERR_TUNNEL_CONNECTION_FAILED` triggers a retry; other errors fail immediately.
-
----
-
-## Cloud usage
-
-Same `/connect` flow, different base URL and API key:
-
-```python
-resp = httpx.get(
-    "https://cloud.rayobrowse.com/connect",
-    params={"os": "windows", "headless": "false"},
-    headers={"x-api-key": "YOUR_API_KEY"},
-    timeout=120,
-)
-cdp_url = resp.text.strip()
-```
-
-The API key can also be passed as `?token=YOUR_API_KEY` in the query string.
+**Note:** `tenacity`'s `match=` uses `re.match()` (anchored to start), so always
+prefix patterns with `.*` to match mid-string.
 
 ---
 
@@ -517,25 +216,13 @@ The API key can also be passed as `?token=YOUR_API_KEY` in the query string.
 | Env var | Default | Purpose |
 |---------|---------|---------|
 | `RAYOBROWSE_PORT` | `9222` | Host port for the HTTP daemon |
-| `RAYOBYTE_ENDPOINT` | `http://localhost:9222` | Used by SDK and example scripts |
-| `RAYOBYTE_API_KEY` | — | Cloud API key, used by SDK and example scripts |
-| `AUTOMATION_PROXY` | — | Proxy URL (`http://user:pass@host:port`) forwarded to every `/connect` call; set once in the environment instead of hardcoding per script |
+| `AUTOMATION_PROXY` | — | Proxy URL forwarded to every `/connect` call |
 
-### AUTOMATION_PROXY — agent guidance
+When writing scripts, always read `AUTOMATION_PROXY` from the environment and pass
+it as the `proxy` parameter if set. Only HTTP proxies are supported (not SOCKS).
 
-Whenever you write a script that calls `/connect`, read `AUTOMATION_PROXY` from the
-environment and pass it as the `proxy` parameter if it is set. Tell the user:
-
-> **Proxy:** If you want all browser traffic routed through a proxy, set
-> `AUTOMATION_PROXY=http://user:pass@host:port` before running this script.
-> rayobrowse will automatically match the timezone and locale to the proxy's
-> geolocation, so you don't need to touch the script itself.
->
-> Only HTTP proxies are supported (`http://…`). SOCKS proxies are not currently
-> supported by rayobrowse.
-
-The container requires `shm_size: 2g` and `seccomp=unconfined` (both set in the
-bundled `assets/docker-compose.yml`). Budget ~300 MB RAM per concurrent browser.
+Container requires `shm_size: 2g` and `seccomp=unconfined` (set in bundled
+`assets/docker-compose.yml`). Budget ~300 MB RAM per concurrent browser.
 
 ---
 
@@ -543,30 +230,30 @@ bundled `assets/docker-compose.yml`). Budget ~300 MB RAM per concurrent browser.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `Connection refused` on port 9222 | Container not running | `docker compose up -d` |
-| Health check fails | Daemon still starting or crashed | Wait, then `docker compose logs -f` |
-| Playwright error: `/connect` is not a WebSocket | Connecting CDP client to the HTTP endpoint directly | Call HTTP `/connect` first, then connect to the returned CDP URL |
-| Site blocks the session | Fingerprint mismatch or bot-like behavior | Use `os=windows`, pin `browser_version_min/max=146`, add a proxy, slow down navigation |
-| noVNC unavailable | VNC not requested | Add `vnc=true` to the `/connect` call |
-| `ERR_TUNNEL_CONNECTION_FAILED` | Proxy exit IP is dead/blocked, or proxy config broken | Residential proxies rotate IPs — retry with a **new `/connect` session** to draw a fresh exit IP. If persistent, test proxy with `curl -x` against `httpbin.org/ip`; check for missing `http://` scheme in `AUTOMATION_PROXY`. See "Retrying on proxy tunnel failures" above. |
-| Rayobyte proxy returns `551 No Proxy` | Invalid geo-targeting suffix or state unavailable | Use `-region-statename` only — do **not** include `-country-XX` (Rayobyte doesn't support it and returns 551); if state is unavailable, try another or use bare credentials. See `014-features-proxy-support.md` |
+| `Connection refused` on 9222 | Container not running | `docker compose up -d` |
+| Health check fails | Daemon starting or crashed | Wait, then `docker compose logs -f` |
+| `/connect` is not a WebSocket | CDP client pointed at HTTP endpoint | Call `/connect` first, connect to returned CDP URL |
+| Site blocks session | Fingerprint mismatch / bot behavior | Use `os=windows`, pin version `146`, add proxy, slow down |
+| `ERR_TUNNEL_CONNECTION_FAILED` | Proxy exit IP dead/blocked | Retry with **new `/connect` session** for fresh IP; if persistent, test with `curl -x`; check `http://` scheme |
+| `551 No Proxy` (Rayobyte) | Invalid geo-targeting suffix | Use `-region-statename` only — no `-country-XX`; try another state or bare credentials |
+| noVNC unavailable | VNC not requested | Add `vnc=true` to `/connect` |
 
 ---
 
 ## Reference files
 
-Detailed documentation lives in `references/` next to this file:
+Detailed docs in `references/` next to this file:
 
 | Topic | File |
 |-------|------|
-| Introduction & overview | `001-introduction.md` |
+| Introduction | `001-introduction.md` |
 | Local quickstart | `002-quickstart-local.md` |
 | Cloud quickstart | `003-quickstart-cloud.md` |
-| `/connect` endpoint (all params) | `006-local-connect-endpoint.md` |
-| Configuration & env vars | `007-local-configuration.md` |
-| Fingerprint spoofing internals | `013-features-fingerprinting.md` |
+| `/connect` endpoint | `006-local-connect-endpoint.md` |
+| Configuration | `007-local-configuration.md` |
+| Fingerprinting | `013-features-fingerprinting.md` |
 | Proxy support | `014-features-proxy-support.md` |
-| Headless vs headful & VNC | `015-features-headless-headful.md` |
+| Headless/headful & VNC | `015-features-headless-headful.md` |
 | Session management | `016-features-session-management.md` |
 | Human mouse behavior | `017-features-human-mouse.md` |
 | Python SDK | `019-sdks-python-quickstart.md`, `020-sdks-python-reference.md` |
