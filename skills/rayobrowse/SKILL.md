@@ -10,7 +10,17 @@ description: Stealth Chromium browser (HTTP/CDP) for scraping and automation. Lo
 (loops, conditionals, data pipelines), use Python + Playwright (see below).
 
 ```bash
-CDP_URL=$(curl -s "http://localhost:9222/connect?os=windows&headless=false&vnc=true")
+export AUTOMATION_PROXY="http://user:pass@host:port"  # optional - set here before running
+
+# CONFIGURATION TROUBLESHOOTING FOR PROXY:
+# - If proxy URL contains special chars (:@), use double quotes when setting the variable
+# - Example: export AUTOMATION_PROXY="http://user:pass@host:port"
+# - The curl below automatically adds proxy when AUTOMATION_PROXY is set
+
+# Get CDP URL from rayobrowse (proxy added via dynamic shell expansion)
+CONNECT_URL="http://localhost:9222/connect?os=windows&headless=false&vnc=true${AUTOMATION_PROXY:+&proxy=$AUTOMATION_PROXY}"
+CDP_URL=$(curl -s "$CONNECT_URL")
+
 playwright-cli attach --cdp "$CDP_URL"
 playwright-cli goto "https://duckduckgo.com"
 playwright-cli snapshot          # page structure with clickable refs
@@ -19,9 +29,16 @@ playwright-cli screenshot
 playwright-cli close
 ```
 
+**Proxy URL Notes for AI agents:**
+- NEVER insert `$AUTOMATION_PROXY` directly inside double-quoted curl URLs - shell expansion will fail with special characters (especially `@` in basic auth)
+- Always use the `${AUTOMATION_PROXY:+&proxy=$AUTOMATION_PROXY}` shell parameter expansion pattern shown above
+- If proxy URL contains colons or @ signs, parentheses must be properly balanced in the shell command
+
 | Command | What it does |
 |---------|-------------|
 | `attach --cdp <url>` | Connect to rayobrowse CDP session |
+| `connect <url>` | Helper to get CDP URL from rayobrowse endpoint (HTTP → WebSocket) |
+| `vnc-url` | Display rayobrowse VNC URL if `vnc=true` was used in connect |
 | `goto <url>` | Navigate |
 | `snapshot [target]` | Page structure as YAML with element refs |
 | `click <target>` | Click element (by ref, text, or CSS) |
@@ -242,6 +259,7 @@ Container requires `shm_size: 2g` and `seccomp=unconfined` (set in bundled
 | Site blocks session | Fingerprint mismatch / bot behavior | Use `os=windows`, pin version `146`, add proxy, slow down |
 | `ERR_TUNNEL_CONNECTION_FAILED` | Proxy exit IP dead/blocked | Retry with **new `/connect` session** for fresh IP; if persistent, test with `curl -x`; check `http://` scheme |
 | `551 No Proxy` (Rayobyte) | Invalid geo-targeting suffix | Use `-region-statename` only — no `-country-XX`; try another state or bare credentials |
+| Proxy URL not working | Special chars in `$AUTOMATION_PROXY` (:@) not expanded | Use `${AUTOMATION_PROXY:+&proxy=$AUTOMATION_PROXY}` pattern; set variable with double quotes; do NOT inline proxy URL |
 | noVNC unavailable | VNC not requested | Add `vnc=true` to `/connect` |
 
 ---
