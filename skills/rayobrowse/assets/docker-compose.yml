@@ -5,9 +5,7 @@ services:
     shm_size: '2g'
     security_opt:
       - seccomp=unconfined
-    ports:
-      - "${RAYOBROWSE_PORT:-9222}:9222"
-      - "6080-6119:6080-6119"
+    network_mode: "host"
     volumes:
       - rayobrowse-data:/data
     env_file:

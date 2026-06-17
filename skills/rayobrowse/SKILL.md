@@ -67,10 +67,16 @@ Selenium all work without changes.
    If unhealthy, wait a few seconds or check `docker compose logs -f`.
 
 3. **Install client:**
+   On most OSes:
    ```bash
-   pip install httpx playwright && playwright install chromium
+   pip install httpx playwright
    ```
-
+   
+   On NixOS - run your scripts with:
+   ```sh
+   nix-shell -p python3Packages.playwright python3Packages.httpx
+   ```
+   
 ---
 
 ## Core usage pattern
