@@ -34,6 +34,12 @@ playwright-cli close
 - Always use the `${AUTOMATION_PROXY:+&proxy=$AUTOMATION_PROXY}` shell parameter expansion pattern shown above
 - If proxy URL contains colons or @ signs, parentheses must be properly balanced in the shell command
 
+**AI Agent Usage Notes:**
+- AI agents MUST use `--session <name>` to create a named browser session before running commands
+- Commands are passed via stdin (echo)
+- No `--command` option exists - use `echo "<command>" | playwright-cli --s=<session>`
+- Example: `echo "goto https://example.com" | playwright-cli --s=my-session`
+
 | Command | What it does |
 |---------|-------------|
 | `attach --cdp <url>` | Connect to rayobrowse CDP session |
@@ -50,7 +56,6 @@ playwright-cli close
 | `upload <file>` | Upload file |
 | `tab-list` / `tab-new [url]` | Manage tabs |
 | `close` | Close browser |
-
 ---
 
 ## What rayobrowse is
@@ -136,6 +141,59 @@ with sync_playwright() as p:
 
 For Node.js (Playwright/Puppeteer) examples, see `024-integrations-playwright.md`
 and `025-integrations-puppeteer.md` in the references section.
+
+---
+
+## ⚡ AI Agent Usage for playwright-cli
+
+**IMPORTANT:** AI agents must create a named session before running any playwright-cli commands:
+
+```bash
+# 1. Get CDP session (AI-assisted - can use python or curl helper)
+CDP_URL=$(curl -s "http://localhost:9222/connect?os=windows&headless=false")
+
+# 2. Attach with a named session
+playwright-cli attach --cdp "$CDP_URL" --session <your-session-name>
+
+# 3. Run commands using the session flag
+echo "goto https://example.com" | playwright-cli --s=<your-session-name>
+echo "snapshot" | playwright-cli --s=<your-session-name>
+
+**Key Rules for AI Agents:**
+
+1. **ALWAYS use `--session <name>`** - This creates and persists a browser session
+2. **Commands come via stdin** - Use `echo "<command>" | playwright-cli --s=<session>`
+3. **No `--command` option** - playwright-cli doesn't have this
+4. **Scope is limited to session** - Close `playwright-cli --s=<name> close` to detach
+
+**Example Workflow:**
+```bash
+# Check if session exists
+playwright-cli list 2>/dev/null | grep"<your-session-name>"
+
+# Connect if needed
+CDP_URL=$(curl -s "http://localhost:9222/connect?os=windows&headless=false")
+playwright-cli attach --cdp "$CDP_URL" --session research-study
+
+# Run commands
+echo "goto https://example.com" | playwright-cli --s=research-study
+echo "screenshot" | playwright-cli --s=research-study
+
+# Use element refs
+echo "click ref=e22" | playwright-cli --s=research-study
+
+echo "close" | playwright-cli --s=research-study
+```
+
+**Common Mistakes to Avoid:**
+- ❌ `playwright-cli goto https://...` (without session - will create ephemeral session)
+- ❌ `playwright-cli --command "goto ..."` (no such option)
+- ❌ Multiple sessions without naming (makes state management hard)
+
+**Field Reference for CSS Selectors:**
+- Use `ref=...` for element references from snapshot output
+- Use CSS selectors: `a[href="..."], .class, input[name="..."]`
+- Use click by: text content, placeholder, or CSS
 
 ---
 
