@@ -1,0 +1,15 @@
+services:
+  rayobrowse:
+    image: rayobyte/rayobrowse:latest
+    restart: unless-stopped
+    shm_size: '2g'
+    security_opt:
+      - seccomp=unconfined
+    ports:
+      - "9222:9222"
+      - "6080-6119:6080-6119"
+    volumes:
+      - rayobrowse-data:/data
+
+volumes:
+  rayobrowse-data:

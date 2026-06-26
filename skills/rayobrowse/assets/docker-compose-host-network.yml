@@ -1,0 +1,13 @@
+services:
+  rayobrowse:
+    image: rayobyte/rayobrowse:latest
+    restart: unless-stopped
+    shm_size: '2g'
+    security_opt:
+      - seccomp=unconfined
+    network_mode: host
+    volumes:
+      - rayobrowse-data:/data
+
+volumes:
+  rayobrowse-data:
