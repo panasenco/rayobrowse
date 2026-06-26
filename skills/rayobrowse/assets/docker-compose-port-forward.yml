@@ -10,6 +10,8 @@ services:
       - "6080-6119:6080-6119"
     volumes:
       - rayobrowse-data:/data
+    environment:
+      - STEALTH_BROWSER_NOVNC=true
 
 volumes:
   rayobrowse-data:

@@ -38,9 +38,7 @@ docker compose -f /path/to/skills/rayobrowse/assets/docker-compose-host-network.
 
 ## Checking health
 
-```sh
-curl --verbose --max-time 2 http://localhost:9222/health
-```
+Check again with `curl --verbose --max-time 2 http://localhost:9222/health`.
 
 "Connection refused" is normal within the first ~3 mins as the service starts up.
 
@@ -55,4 +53,49 @@ If the curl is timing out on the host but not in the container, you likely need 
 ```sh
 docker compose -f /path/to/skills/rayobrowse/assets/docker-compose-port-forward.yml down
 docker compose -f /path/to/skills/rayobrowse/assets/docker-compose-host-network.yml up -d
+```
+
+If still broken, inspect the logs with `docker logs <container ID>` and do your best to troubleshoot from there.
+
+# Using rayobrowse
+
+## Proxy URL
+
+If the user wants to use a proxy service, have them expose their proxy URL in the environment variable `AUTOMATION_PROXY`.
+For example, in Rayobyte, they can go to Residential > Proxy Access and then copy their proxy URL from there.
+
+To test that the automation proxy takes you through different IPs:
+
+```sh
+curl api.ipify.org
+curl -x $AUTOMATION_PROXY api.ipify.org
+```
+
+## playwright-cli
+
+[playwright-cli](https://github.com/microsoft/playwright-cli) is the preferred tool for an AI agent to interact directly with `rayobrowse`.
+Ask the user to install `playwright-cli` if it's not available.
+
+1.  Get the Chrome DevTools Protocol URL:
+    ```sh
+    CDP_URL=$(curl -s -D /tmp/rayoheaders.txt "http://localhost:9222/connect?os=windows&headless=false&vnc=true${AUTOMATION_PROXY:+&proxy=$AUTOMATION_PROXY}")
+    ```
+    If the user is interested in the VNC URL, extract it from the headers file:
+    ```sh
+    echo $(grep -i '^x-vnc-url:' /tmp/rayoheaders.txt | awk '{print $2}')
+    ```
+2.  Have`playwright-cli` use the Chrome DevTools Protocol URL:
+    ```sh
+    playwright-cli attach --cdp "$CDP_URL"
+    ```
+3.  Check that the exit IP address is different from the host:
+    ```sh
+    curl api.ipify.org
+    playwright-cli goto "https://api.ipify.org"
+    playwright-cli snapshot
+    ```
+
+To close the browser:
+```bash
+curl -X POST http://localhost:9222/api/browser/close -d "{\"sessionId\": \"${CDP_URL##*/}\"}"
 ```
